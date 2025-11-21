@@ -1,15 +1,73 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  email         String    @unique
+  password_hash String
+  role          String    @default("customer") // customer, barista, admin
+  created_at    DateTime  @default(now())
+  
+  orders Order[]
+  
+  @@map("users")
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  
+  menuItems MenuItem[]
+  
+  @@map("categories")
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  order_date DateTime    @default(now())
+  status     String      @default("pending") // pending, in_progress, completed, cancelled
+  total_price Decimal    @db.Decimal(10, 2)
+  user_id    Int
+  
+  user       User        @relation(fields: [user_id], references: [id])
+  orderItems OrderItem[]
+  
+  @@map("orders")
+}
+
+model MenuItem {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  is_available Boolean    @default(true)
+  category_id Int
+  
+  category   Category    @relation(fields: [category_id], references: [id])
+  orderItems OrderItem[]
+  
+  @@map("menu_items")
+}
+
+model OrderItem {
+  id           Int     @id @default(autoincrement())
+  order_id     Int
+  menuitem_id  Int
+  quantity     Int
+  unit_price   Decimal @db.Decimal(10, 2)
+  
+  order    Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuitem_id], references: [id])
+  
+  @@unique([order_id, menuitem_id])
+  @@map("order_items")
 }
