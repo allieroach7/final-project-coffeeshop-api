@@ -1,0 +1,515 @@
+openapi: 3.0.1
+info:
+  title: BrewHaven API
+  version: 1.0.0
+  description: REST API for BrewHaven coffee shop
+
+servers:
+  - url: https://final-project-coffeeshop-api.onrender.com
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [customer, barista, admin]
+        created_at:
+          type: string
+          format: date-time
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        is_available:
+          type: boolean
+        category_id:
+          type: integer
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+        total_price:
+          type: number
+          format: float
+        user_id:
+          type: integer
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Auth Endpoints
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username:
+                  type: string
+                  example: john_doe
+                email:
+                  type: string
+                  example: john@example.com
+                password:
+                  type: string
+                  example: Password123
+      responses:
+        '201':
+          description: User created successfully
+        '400':
+          description: Invalid input
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: john@example.com
+                password:
+                  type: string
+                  example: Password123
+      responses:
+        '200':
+          description: Login successful, returns JWT token
+        '401':
+          description: Invalid credentials
+
+  # Categories
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List all categories
+      responses:
+        '200':
+          description: Array of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+    post:
+      tags: [Categories]
+      summary: Create a new category
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Coffee
+                description:
+                  type: string
+                  example: Hot brewed coffee
+      responses:
+        '201':
+          description: Category created
+        '403':
+          description: Unauthorized
+
+  /categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Get a category by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category found
+        '404':
+          description: Not found
+    put:
+      tags: [Categories]
+      summary: Update a category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Espresso
+                description:
+                  type: string
+                  example: Dark roasted espresso
+      responses:
+        '200':
+          description: Category updated
+        '403':
+          description: Unauthorized
+    delete:
+      tags: [Categories]
+      summary: Delete a category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category deleted
+        '403':
+          description: Unauthorized
+
+  # Menu Items
+  /menu/items:
+    get:
+      tags: [Menu]
+      summary: List all menu items
+      responses:
+        '200':
+          description: Array of menu items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuItem'
+    post:
+      tags: [Menu]
+      summary: Create a menu item (barista/admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Latte
+                description:
+                  type: string
+                  example: Milk and espresso
+                price:
+                  type: number
+                  format: float
+                  example: 4.5
+                category_id:
+                  type: integer
+                  example: 1
+                is_available:
+                  type: boolean
+                  example: true
+      responses:
+        '201':
+          description: Menu item created
+        '403':
+          description: Unauthorized
+
+  /menu/items/{id}:
+    get:
+      tags: [Menu]
+      summary: Get menu item by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Menu item found
+        '404':
+          description: Not found
+    put:
+      tags: [Menu]
+      summary: Update menu item (barista/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                  format: float
+                category_id:
+                  type: integer
+                is_available:
+                  type: boolean
+      responses:
+        '200':
+          description: Menu item updated
+        '403':
+          description: Unauthorized
+    delete:
+      tags: [Menu]
+      summary: Delete menu item (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Menu item deleted
+        '403':
+          description: Unauthorized
+
+  # Orders
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders (authenticated users see their own, barista/admin see all)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of orders
+    post:
+      tags: [Orders]
+      summary: Create a new order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      menuitem_id:
+                        type: integer
+                      quantity:
+                        type: integer
+      responses:
+        '201':
+          description: Order created
+    /orders/{id}:
+      get:
+        tags: [Orders]
+        summary: Get order by ID (ownership or barista/admin)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        responses:
+          '200':
+            description: Order found
+          '403':
+            description: Unauthorized
+          '404':
+            description: Not found
+      put:
+        tags: [Orders]
+        summary: Update order status (barista/admin)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [pending, in_progress, completed, cancelled]
+        responses:
+          '200':
+            description: Status updated
+          '403':
+            description: Unauthorized
+      delete:
+        tags: [Orders]
+        summary: Delete order (owner or admin)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        responses:
+          '200':
+            description: Order deleted
+          '403':
+            description: Unauthorized
+
+  # Users
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (barista/admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of users
+        '403':
+          description: Unauthorized
+    /users/{id}:
+      get:
+        tags: [Users]
+        summary: Get user by ID (ownership or barista/admin)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        responses:
+          '200':
+            description: User found
+          '403':
+            description: Unauthorized
+          '404':
+            description: Not found
+      put:
+        tags: [Users]
+        summary: Update user (ownership or admin)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                  email:
+                    type: string
+                  role:
+                    type: string
+                    enum: [customer, barista, admin]
+        responses:
+          '200':
+            description: User updated
+          '403':
+            description: Unauthorized
+      delete:
+        tags: [Users]
+        summary: Delete user (admin only)
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema:
+              type: integer
+        responses:
+          '200':
+            description: User deleted
+          '403':
+            description: Unauthorized
