@@ -10,7 +10,7 @@ const swaggerOptions = {
       description: 'REST API for BrewHaven coffee shop',
     },
     servers: [
-      { url: 'https://final-project-coffeeshop-api.onrender.com' }
+      { url: 'https://final-project-coffeeshop-api-1haa.onrender.com' }
     ],
     components: {
       securitySchemes: {
