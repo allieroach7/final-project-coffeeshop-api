@@ -23,7 +23,7 @@ model User {
 
 model Category {
   id          Int         @id @default(autoincrement())
-  name        String
+  name        String      @unique
   description String?
   
   menuItems MenuItem[]
@@ -46,7 +46,7 @@ model Order {
 
 model MenuItem {
   id          Int         @id @default(autoincrement())
-  name        String
+  name        String      @unique
   description String?
   price       Decimal     @db.Decimal(10, 2)
   is_available Boolean    @default(true)
