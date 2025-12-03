@@ -3,43 +3,103 @@ import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../db.js';
 
 export async function createOrder(req, res) {
-  // expects items: [{ menuitem_id, quantity }]
-  const userId = req.user.id;
-  const { items } = req.body;
-  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'items required' });
+  try {
+    const userId = req.user.id;
+    const { items } = req.body;
+    
+    // Validation
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ 
+        message: 'items array is required and must not be empty' 
+      });
+    }
 
-  // Fetch menu items
-  const menuItemIds = items.map(i => i.menuitem_id);
-  const menuItems = await prisma.menuItem.findMany({ where: { id: { in: menuItemIds } }});
-  // compute total and build orderItems
-  let total = 0;
-  const orderItemsData = items.map(i => {
-    const m = menuItems.find(mi => mi.id === i.menuitem_id);
-    if (!m) throw new Error(`MenuItem ${i.menuitem_id} not found`);
-    const unit_price = Decimal(m.price);
-    const quantity = Number(i.quantity);
-    total += unit_price * quantity;
-    return {
-      menuitem_id: i.menuitem_id,
-      quantity,
-      unit_price,
-    };
-  });
-  const order = await prisma.order.create({
-    data: {
-      user_id: userId,
-      total_price: total,
-      orderItems: {
-        create: orderItemsData.map(oi => ({
-          menuitem_id: oi.menuitem_id,
-          quantity: oi.quantity,
-          unit_price: oi.unit_price,
-        })),
+    // Validate each item
+    for (const item of items) {
+      if (!item.menuitem_id || !item.quantity) {
+        return res.status(400).json({ 
+          message: 'Each item must have menuitem_id and quantity' 
+        });
+      }
+      if (item.quantity <= 0) {
+        return res.status(400).json({ 
+          message: 'Quantity must be greater than 0' 
+        });
+      }
+    }
+
+    // Fetch menu items
+    const menuItemIds = items.map(i => i.menuitem_id);
+    const menuItems = await prisma.menuItem.findMany({ 
+      where: { 
+        id: { in: menuItemIds },
+        is_available: true 
+      } 
+    });
+
+    // Check if all requested items exist and are available
+    const foundIds = menuItems.map(mi => mi.id);
+    const missingIds = menuItemIds.filter(id => !foundIds.includes(id));
+    
+    if (missingIds.length > 0) {
+      return res.status(400).json({ 
+        message: `Some menu items not found or not available: ${missingIds.join(', ')}` 
+      });
+    }
+
+    // Create a map for quick lookup
+    const menuItemMap = {};
+    menuItems.forEach(mi => {
+      menuItemMap[mi.id] = mi;
+    });
+
+    // Calculate total and prepare order items
+    let total = 0;
+    const orderItemsData = items.map(item => {
+      const menuItem = menuItemMap[item.menuitem_id];
+      
+      // Convert Decimal to number properly
+      const unitPrice = parseFloat(menuItem.price.toString());
+      const quantity = parseInt(item.quantity);
+      const itemTotal = unitPrice * quantity;
+      
+      total += itemTotal;
+      
+      return {
+        menuitem_id: item.menuitem_id,
+        quantity: quantity,
+        unit_price: unitPrice,
+      };
+    });
+
+    // Create the order
+    const order = await prisma.order.create({
+      data: {
+        user_id: userId,
+        total_price: total,
+        orderItems: {
+          create: orderItemsData,
+        },
       },
-    },
-    include: { orderItems: { include: { menuItem: true } } },
-  });
-  res.status(201).json(order);
+      include: { 
+        orderItems: { 
+          include: { 
+            menuItem: true 
+          } 
+        } 
+      },
+    });
+
+    return res.status(201).json(order);
+    
+  } catch (err) {
+    console.error('Error creating order:', err);
+    return res.status(500).json({ 
+      message: 'Failed to create order', 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  }
 }
 
 export async function listOrders(req, res) {
