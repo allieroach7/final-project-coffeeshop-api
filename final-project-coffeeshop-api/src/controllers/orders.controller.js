@@ -7,6 +7,9 @@ export async function createOrder(req, res) {
     const userId = req.user.id;
     const { items } = req.body;
     
+    console.log('Creating order for user:', userId);
+    console.log('Request items:', items);
+
     // Validation
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
@@ -14,42 +17,48 @@ export async function createOrder(req, res) {
       });
     }
 
-    // Validate each item
-    for (const item of items) {
-      if (!item.menuitem_id || !item.quantity) {
-        return res.status(400).json({ 
-          message: 'Each item must have menuitem_id and quantity' 
-        });
-      }
-      if (item.quantity <= 0) {
-        return res.status(400).json({ 
-          message: 'Quantity must be greater than 0' 
-        });
-      }
-    }
-
-    // Fetch menu items
-    const menuItemIds = items.map(i => i.menuitem_id);
-    const menuItems = await prisma.menuItem.findMany({ 
-      where: { 
-        id: { in: menuItemIds },
-        is_available: true 
-      } 
+    // Fetch ALL menu items to see what's available
+    const allMenuItems = await prisma.menuItem.findMany({
+      select: { id: true, name: true, price: true, is_available: true }
     });
+    
+    console.log('All menu items in database:', allMenuItems);
 
-    // Check if all requested items exist and are available
-    const foundIds = menuItems.map(mi => mi.id);
-    const missingIds = menuItemIds.filter(id => !foundIds.includes(id));
+    // Get requested IDs
+    const requestedIds = items.map(i => i.menuitem_id);
+    console.log('Requested menu item IDs:', requestedIds);
+
+    // Find requested items
+    const foundItems = allMenuItems.filter(mi => 
+      requestedIds.includes(mi.id) && mi.is_available
+    );
+    
+    const foundIds = foundItems.map(mi => mi.id);
+    const missingIds = requestedIds.filter(id => !foundIds.includes(id));
     
     if (missingIds.length > 0) {
+      // Get names of missing items if possible
+      const missingItemsInfo = allMenuItems
+        .filter(mi => missingIds.includes(mi.id))
+        .map(mi => ({ id: mi.id, name: mi.name, is_available: mi.is_available }));
+      
+      const availableItems = allMenuItems
+        .filter(mi => mi.is_available)
+        .map(mi => ({ id: mi.id, name: mi.name }));
+      
       return res.status(400).json({ 
-        message: `Some menu items not found or not available: ${missingIds.join(', ')}` 
+        message: 'Some menu items are not available',
+        details: {
+          missing_ids: missingIds,
+          missing_items: missingItemsInfo,
+          available_items: availableItems,
+          suggestion: 'Use one of the available item IDs shown above'
+        }
       });
     }
-
     // Create a map for quick lookup
     const menuItemMap = {};
-    menuItems.forEach(mi => {
+    foundItems.forEach(mi => {
       menuItemMap[mi.id] = mi;
     });
 
