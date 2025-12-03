@@ -9,7 +9,7 @@ import YAML from 'yamljs';
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
