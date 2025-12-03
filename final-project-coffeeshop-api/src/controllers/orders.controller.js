@@ -1,4 +1,5 @@
 // src/controllers/orders.controller.js
+import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../db.js';
 
 export async function createOrder(req, res) {
@@ -15,7 +16,7 @@ export async function createOrder(req, res) {
   const orderItemsData = items.map(i => {
     const m = menuItems.find(mi => mi.id === i.menuitem_id);
     if (!m) throw new Error(`MenuItem ${i.menuitem_id} not found`);
-    const unit_price = Number(m.price);
+    const unit_price = Decimal(m.price);
     const quantity = Number(i.quantity);
     total += unit_price * quantity;
     return {

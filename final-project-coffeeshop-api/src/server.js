@@ -27,7 +27,7 @@ import orderRoutes from './routes/orders.routes.js';
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/menu-items', menuItemRoutes);
+app.use('/api/menu', menuItemRoutes);
 app.use('/api/orders', orderRoutes);
 
 // Swagger Documentation
